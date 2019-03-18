@@ -16,7 +16,7 @@ class ControllerBase extends \Yaf\Controller_Abstract
 
     public function init()
     {
-        Validator::lang('zh-cn');
+
     }
 
     public function getQuery($name = '', $default = null) {
@@ -72,7 +72,7 @@ class ControllerBase extends \Yaf\Controller_Abstract
         return $this;
     }
 
-    public function tips($tip)
+    public function message($tip)
     {
         $this->validator->message($tip);
         return $this;

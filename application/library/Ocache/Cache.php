@@ -9,7 +9,7 @@ class Cache
     /** @var CacheInterface */
     protected static $cacher;
 
-    public static function instance(CacheInterface $cacher)
+    public static function init(CacheInterface $cacher)
     {
         if (null === self::$cacher) {
             self::$cacher = $cacher;
@@ -20,7 +20,7 @@ class Cache
     public static function getCacher()
     {
         if (null === self::$cacher) {
-            throw new \Exception('please instance cache');
+            throw new \Exception('please init cache');
         }
         return self::$cacher;
     }

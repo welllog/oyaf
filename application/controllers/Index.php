@@ -7,6 +7,7 @@
  */
 
 use Olog\Log;
+use Ocache\Cache;
 
 class IndexController extends \Base\ControllerBase {
 

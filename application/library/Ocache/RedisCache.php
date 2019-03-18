@@ -8,22 +8,19 @@ class RedisCache implements CacheInterface
 {
     /** @var \Redis  */
     protected $handler;
-    protected $conf;
+    protected $resolve;
 
     // 注入的redis对象不要跟程序中的redis共用一个，防止切换库或者序列化影响
-    public function __construct(array $redisConfig)
+    public function __construct(\Closure $closure)
     {
-        $this->conf = $redisConfig;
+        $this->resolve = $closure;
     }
 
     // 需要操作缓存，再建立redis连接
     protected function setHandler()
     {
         if ($this->handler === null) {
-            $this->handler = new \Redis();
-            $this->handler->connect($this->conf['host'], $this->conf['port'], $this->conf['time_out'], null, 100);
-            if (!empty($this->conf['password'])) $this->handler->auth($this->conf['password']);
-            $this->handler->select($this->conf['database']);
+            $this->handler = ($this->resolve)();
             // 不采用redis序列化选项，方便对值做出判断
 //            $this->handler->setOption(\Redis::OPT_SERIALIZER, \Redis::SERIALIZER_PHP);
         }

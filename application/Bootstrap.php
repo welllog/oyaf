@@ -14,6 +14,7 @@ use Olog\FileOut;
 use Ocache\RedisCache;
 use Ocache\FileCache;
 use Ocache\Cache;
+use Odb\Oredis;
 
 /**
  * 该类应防止异常或抛错
@@ -29,15 +30,16 @@ class Bootstrap extends Yaf\Bootstrap_Abstract{
         \Yaf\Registry::set(RgtEnum::DB_CONF, $dbconf[RUN_MODE]);
 
         // 注册日志,默认文件缓存
-        Log::instance($arrConfig['loglevel'], new FileOut(APPLICATION_PATH . '/storage/logs'));
+        Log::init($arrConfig['loglevel'], new FileOut(APPLICATION_PATH . '/storage/logs'));
 
         if ($arrConfig['cachedriver'] == 'redis') {
-            $cacher = new RedisCache($dbconf[RUN_MODE]['redis']['cache']);
+            // 注入闭包，具体调用，再建立redis连接
+            $cacher = new RedisCache(function(){return Oredis::getRedis('cache');});
         } elseif ($arrConfig['cachedriver'] == 'file') {
             $cacher = new FileCache(APPLICATION_PATH . '/storage/cache', 86400 * 5);
         }
         // 注册缓存
-        Cache::instance($cacher);
+        Cache::init($cacher);
 	}
 
     public function _initErrorHandle()
@@ -58,7 +60,7 @@ class Bootstrap extends Yaf\Bootstrap_Abstract{
 	}
 
 	public function _initPlugin(Yaf\Dispatcher $dispatcher) {
-		//注册一个插件
+		//注册一个插件,其它插件应先注册
 		$objSamplePlugin = new SamplePlugin();
 		$dispatcher->registerPlugin($objSamplePlugin);
 	}

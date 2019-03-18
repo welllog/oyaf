@@ -31,7 +31,7 @@ server {
 
 
 ###### 成功提示
-> 访问http://yourhost/index/,出现Hellow Word!, 表示运行成功,否则请查看php错误日志;
+> composer install安装，访问http://yourhost/index/,出现Hellow Word!, 表示运行成功,否则请查看php错误日志;
 
 #### 配置
 >* conf目录下
@@ -42,32 +42,32 @@ server {
 >> 4. dbconf.php中数据库连接配置
 
 #### tips
-缓存实现了psr-16标准，需要替换或增加缓存驱动，修改application/library/Ocache/Cache.php即可
-日志实现了psr-3标准，目前实现了file,elasticsearch写入日志，如需扩展仅需实现application/library/Olog/Output接口,并在
+* 缓存实现了psr-16标准，需要替换或增加缓存驱动，修改application/library/Ocache/Cache.php即可
+* 日志实现了psr-3标准，目前实现了file,elasticsearch写入日志，如需扩展仅需实现application/library/Olog/Output接口,并在
 application/Bootstrap.php中注入
-验证器采用了vlucas/valitron，查看相关文档地址:https://github.com/vlucas/valitron
+* 验证器采用了vlucas/valitron，查看相关文档地址:https://github.com/vlucas/valitron
 
 #### 查询构造器(详细用法查看代码)
-> DB::table('user')->insert(['name' => 'jack', 'age' => 24]);
-> DB::table('user')->insert([['name' => 'linda', 'age' => 21], ['name' => 'bob', 'age' => 24]]);
-> DB::table('user')->where('id', '=', 1)->update(['name' => 'remi']);
-> whereNull('username')
-> whereNotNull('username')
-> whereIn('id', [1, 2, 3])
-> whereNotIn('id', [1, 2, 3])
-> whereBetween('id', [1, 9])
-> whereNotBetween('id', [1, 9])
-> whereColumn('id', '>', 'parent_id')
-> where('username', '=', 'job')->where('age', '>', 23)
-> where([['username', '=', 'job'], ['age', '>', 23]])
-> whereRaw('`id`>? and `status`=?', [10, 1])
+>* DB::table('user')->insert(['name' => 'jack', 'age' => 24]);
+>* DB::table('user')->insert([['name' => 'linda', 'age' => 21], ['name' => 'bob', 'age' => 24]]);
+>* DB::table('user')->where('id', '=', 1)->update(['name' => 'remi']);
+>* whereNull('username')
+>* whereNotNull('username')
+>* whereIn('id', [1, 2, 3])
+>* whereNotIn('id', [1, 2, 3])
+>* whereBetween('id', [1, 9])
+>* whereNotBetween('id', [1, 9])
+>* whereColumn('id', '>', 'parent_id')
+>* where('username', '=', 'job')->where('age', '>', 23)
+>* where([['username', '=', 'job'], ['age', '>', 23]])
+>* whereRaw('`id`>? and `status`=?', [10, 1])
 
 #### controller
 获取请求参数
-> $this->getPost()
-> $this->getPostForm()
-> $this->getQuery()
-> $this->getParams()
+>* $this->getPost()
+>* $this->getPostForm()
+>* $this->getQuery()
+>* $this->getParams()
 
 验证参数
 > $this->makeValidator($params)->rule(...)->validate()
@@ -76,12 +76,12 @@ application/Bootstrap.php中注入
 > return $this->ajaxReturn()
 
 #### model
-$userModel->all()
-$userModel->find($userid);
-$userModel->where(...)
-$userModel->useBuild()->where(...)->first()
+* $userModel->all()
+* $userModel->find($userid);
+* $userModel->where(...)
+* $userModel->useBuild()->where(...)->first()
 
 model属性设置
-protected $table = 'user';
-protected $primaryKey = 'id';
+* protected $table = 'user';
+* protected $primaryKey = 'id';
  

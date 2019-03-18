@@ -14,7 +14,7 @@ class Log
      * @param Output[] $output
      * @return null|Logger
      */
-    public static function instance($level, Output ...$output) : LoggerInterface
+    public static function init($level, Output ...$output) : LoggerInterface
     {
         if (null === self::$logger) {
             self::$logger = new Logger($level, ...$output);
