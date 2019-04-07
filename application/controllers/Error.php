@@ -18,8 +18,8 @@ class ErrorController extends \Base\ControllerBase {
         $msg = $exception->getMessage();
         // 判断是否为自定义异常
         $position = ' in file: (' . $exception->getFile() . ') on line ' .  $exception->getLine();
-//        $isAjax = $this->_request->isXmlHttpRequest();
-        $isAjax = true;
+        $isAjax = $this->_request->isXmlHttpRequest();
+//        $isAjax = true;
 
 	    if ($exception instanceof SysExc) { // 自定义系统异常
             $pmsg = $exception->getPrettyMessage();
@@ -33,11 +33,14 @@ class ErrorController extends \Base\ControllerBase {
         } else { // 其它异常默认为系统严重异常
             Log::error("errcode: $code, detail: $msg, position: $position;");
         }
+        $runTime = (microtime(true) - REQ_BEGIN_TIME) * 1000;
+        Log::info('this request run time: ' . $runTime . 'ms;');
+        Log::realWrite();
 	    if ($isAjax) {
             if (RUN_MODE === 'product') { // 返回友好错误
                 return $this->ajaxError(SysExc::COMMON_EX, SysExc::$_exMap[SysExc::COMMON_EX]);
             } else { // 返回真实错误方便调试
-                return $this->ajaxError(SysExc::COMMON_EX, $msg);
+                return $this->ajaxError(SysExc::COMMON_EX, $msg.$position);
             }
         }
         // 非ajax请求默认处理

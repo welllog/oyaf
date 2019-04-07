@@ -146,6 +146,7 @@ class Logger implements LoggerInterface
      */
     public function log($level, $message, array $context = [])
     {
+        $level = strtoupper($level);
         if ($this->levels[$this->level] > $this->levels[$level]) {
             return;
         }
