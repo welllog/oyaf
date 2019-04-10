@@ -187,4 +187,9 @@ class Logger implements LoggerInterface
 //        $this->logid = md5(uniqid(mt_rand(), true));
     }
 
+    public function __destruct()
+    {
+        $this->realWrite();
+    }
+
 }

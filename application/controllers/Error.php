@@ -35,7 +35,6 @@ class ErrorController extends \Base\ControllerBase {
         }
         $runTime = (microtime(true) - REQ_BEGIN_TIME) * 1000;
         Log::info('this request run time: ' . $runTime . 'ms;');
-        Log::realWrite();
 	    if ($isAjax) {
             if (RUN_MODE === 'product') { // 返回友好错误
                 return $this->ajaxError(SysExc::COMMON_EX, SysExc::$_exMap[SysExc::COMMON_EX]);
