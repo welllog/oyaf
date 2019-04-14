@@ -10,15 +10,29 @@ class BloomFilter
     protected $hashes;
     protected $hashAlgos;
     protected $useBcMath = false;
-    protected $empty;
     protected $filter;
+    /** @var \Redis */
+    protected $redis;
+    protected $bucket;
 
-    public function __construct($maxSize = 1000, $errRate)
+    // 处理一千万的数据，大概需要28M
+    public function __construct($maxSize = 1000, $errRate, $redis, $bucket = 'bloom')
     {
         $this->maxSize = $maxSize;
         $this->errRate = $errRate;
         $this->init();
-        $this->filter = str_repeat("\0", ceil($this->initSize / 8));
+        $this->redis = $redis;
+        $this->bucket = $bucket;
+    }
+
+    public function initFilter()
+    {
+        if ($this->filter === null) {
+            $this->filter = $this->redis->get($this->bucket);
+            if (!$this->filter) {
+                $this->filter = str_repeat("\0", ceil($this->initSize / 8));
+            }
+        }
     }
 
     protected function init()
@@ -45,16 +59,14 @@ class BloomFilter
      */
     public function set($element)
     {
-        if (!is_scalar($element)) {
-            $element = serialize($element);
-        }
         $hashes = $this->hash($element);
+        $this->initFilter();
         foreach ($hashes as $hash) {
             $offset = (int)floor($hash / 8);
             $bit = (int)($hash % 8);
+            // ord获取字符串首字符的ascii码进行|运算，再获取新字符
             $this->filter[$offset] = chr(ord($this->filter[$offset]) | (2 ** $bit));
         }
-        $this->empty = false;
     }
     /**
      * Is element in the hash
@@ -68,10 +80,8 @@ class BloomFilter
      */
     public function check($element)
     {
-        if (!is_scalar($element)) {
-            $element = serialize($element);
-        }
         $hashes = $this->hash($element);
+        $this->initFilter();
         foreach ($hashes as $hash) {
             $offset = (int)floor($hash / 8);
             $bit = (int)($hash % 8);
@@ -81,45 +91,22 @@ class BloomFilter
         }
         return true;
     }
-    /**
-     * Is this instance empty
-     *
-     * @return boolean
-     */
-    public function isEmpty()
-    {
-        return $this->empty;
-    }
-    /**
-     * {@inheritdoc}
-     */
-    public function serialize()
-    {
-        return implode(',', [$this->maxSize, $this->errRate, base64_encode($this->filter)]);
-    }
-    /**
-     * {@inheritdoc}
-     */
-    public function unserialize($serialized)
-    {
-        list($this->maxSize, $this->errRate, $this->filter) = explode(',', $serialized, 3);
-        $this->filter = base64_decode($this->filter);
-        $this->init();
-        $this->empty = false;
-    }
 
     private function getHashAlgos()
     {
         return hash_algos();
     }
+
     private function calculateInitSize($maxSize, $errRate)
     {
         return (int)ceil(($maxSize * (log($errRate)) / (log(2) ** 2)) * -1);
     }
+
     private function calculateHashFunctions($maxSize, $initSize)
     {
         return (int)ceil($initSize / $maxSize * log(2));
     }
+
     private function numHashFunctionsAvailable($hashAlgos)
     {
         $num = 0;
@@ -128,6 +115,7 @@ class BloomFilter
         }
         return $num;
     }
+
     private function hash($element)
     {
         $hashes = [];
@@ -146,4 +134,11 @@ class BloomFilter
         }
         return $hashes;
     }
+
+    public function __destruct()
+    {
+        $this->redis->set($this->bucket, $this->filter);
+    }
+
+
 }

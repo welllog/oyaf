@@ -11,30 +11,34 @@ class ESOut implements Output
     /** @var Client */
     protected $escli;
     protected $index;
-    protected $available = true;
+    protected $initialize = false;
     protected $logs = [];
 
     public function __construct($indexName, ...$host)
     {
+        // php客户端采用resetful api,可以不需要客户端单例模式
+        $this->escli = ClientBuilder::create()
+            ->setHosts($host)
+            ->build();
+
+        $this->index = $indexName;
+    }
+
+    public function initialize()
+    {
+        if ($this->initialize) return;
         try {
-            // php客户端采用resetful api,可以不需要客户端单例模式
-            $this->escli = ClientBuilder::create()
-                ->setHosts($host)
-                ->build();
-
-            $this->index = $indexName;
-
             $indices = $this->escli->indices();
-            $exsists = $indices->exists(['index' => $indexName]);
+            $exsists = $indices->exists(['index' => $this->index]);
             if (!$exsists) { // 创建索引
                 $indices->create([
-                    'index' => $indexName,
+                    'index' => $this->index,
                     'body' => [
                         'settings' => [
                             'number_of_replicas' => 0,
                         ],
                         'mappings' => [
-                            $indexName => [
+                            $this->index => [
                                 'dynamic' => false,
                                 'properties' => [
                                     'Level' => ['type' => 'keyword', 'ignore_above' => 256],
@@ -54,27 +58,29 @@ class ESOut implements Output
                     ]
                 ]);
             }
+            $this->initialize = true;
         } catch (\Exception $e) {
-            $this->available = false;
         }
-
     }
 
-    public function write($level, $logid, array $option ,$message)
+    public function write($level, $logid, array $option ,$message, int $time)
     {
-        if (!$this->available) return;
         $this->logs[] = [
             'Level' => $level,
             'Logid' => $logid,
             'Option' => $option,
             'Message' => $message,
-            '@timestamp' => time()
+            '@timestamp' => $time
         ];
     }
 
     public function realWrite()
     {
-        if (!$this->available) return;
+        $this->initialize();
+        if (!$this->initialize) {
+            $this->logs = [];
+            return;
+        }
         $data['body'] = [];
         foreach ($this->logs as $row) {
             $data['body'][] = [
@@ -86,6 +92,10 @@ class ESOut implements Output
             $data['body'][] = $row;
         }
         if (!$data['body']) return;
-        return $this->escli->bulk($data);
+        try {
+            $this->escli->bulk($data);
+        } catch (\Exception $e) {
+
+        }
     }
 }

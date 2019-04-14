@@ -154,11 +154,11 @@ class Logger implements LoggerInterface
             $message = $this->interpolate($message, $context);
         }
         foreach ($this->outPut as $output) {
-            $output->write($level, $this->logid, $this->option, $message);
+            $output->write($level, $this->logid, $this->option, $message, time());
         }
     }
 
-    public function realWrite()
+    public function flush()
     {
         foreach ($this->outPut as $output) {
             $output->realWrite();
@@ -189,7 +189,7 @@ class Logger implements LoggerInterface
 
     public function __destruct()
     {
-        $this->realWrite();
+        $this->flush();
     }
 
 }

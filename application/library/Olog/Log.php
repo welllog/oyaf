@@ -126,8 +126,8 @@ class Log
         self::get()->debug($message, $context);
     }
 
-    public static function realWrite()
+    public static function flush()
     {
-        self::get()->realWrite();
+        self::get()->flush();
     }
 }

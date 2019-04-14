@@ -15,9 +15,9 @@ class FileOut implements Output
         $this->logPath = $logPath;
     }
 
-    public function write($level, $logid, array $option, $message)
+    public function write($level, $logid, array $option, $message, int $time)
     {
-        $this->multiMsg .= "[$level][".date('Y-m-d H:i:s')."][$logid]";
+        $this->multiMsg .= "[$level][".date('Y-m-d H:i:s', $time)."][$logid]";
         foreach ($option as $k => $v) {
             $this->multiMsg .= "$k: $v; ";
         }
