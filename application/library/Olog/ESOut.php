@@ -39,18 +39,30 @@ class ESOut implements Output
                         ],
                         'mappings' => [
                             $this->index => [
-                                'dynamic' => false,
+                                'dynamic' => false,  // 不能动态添加字段
                                 'properties' => [
-                                    'Level' => ['type' => 'keyword', 'ignore_above' => 256],
-                                    'Logid' => ['type' => 'keyword', 'ignore_above' => 256],
+                                    'Level' => ['type' => 'keyword', 'ignore_above' => 256, 'norms' => false], // 忽略评分因子
+                                    'Logid' => ['type' => 'keyword', 'ignore_above' => 256, 'norms' => false],
                                     'Option' => [
                                         'dynamic' => true,
                                         'properties' => []
                                     ],
-                                    'Message' => ['type' => 'keyword', 'index' => false],
+                                    'Message' => ['type' => 'keyword', 'index' => false, 'doc_values' => false], // 禁止索引，聚合，排序，脚本操作
                                     '@timestamp' => [
                                         'type' => 'date',
                                         'format' => 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_second'
+                                    ]
+                                ],
+                                'dynamic_templates' => [
+                                    [
+                                        'olog' => [
+                                            'path_match' => 'Option.*',
+                                            'mapping' => [
+                                                'type' => 'keyword',
+                                                'ignore_above' => 256,
+                                                'norms' => false
+                                            ]
+                                        ]
                                     ]
                                 ]
                             ]

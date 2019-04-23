@@ -15,6 +15,7 @@ class ModelBase
 {
     protected $table;
     protected $primaryKey = 'id';
+    protected $connect = 'default';
 
     protected function getTable()
     {
@@ -33,7 +34,7 @@ class ModelBase
     public function all()
     {
         $table = $this->getTable();
-        return DB::table($table)->get();
+        return DB::table($table, $this->connect)->get();
     }
 
     /**
@@ -44,7 +45,7 @@ class ModelBase
     public function find($id)
     {
         $table = $this->getTable();
-        return DB::table($table)->where($this->primaryKey, $id)->first();
+        return DB::table($table, $this->connect)->where($this->primaryKey, $id)->first();
     }
 
     /**
@@ -55,7 +56,7 @@ class ModelBase
     public function where(...$params)
     {
         $table = $this->getTable();
-        return DB::table($table)->where(...$params);
+        return DB::table($table, $this->connect)->where(...$params);
     }
 
     /**
@@ -65,6 +66,6 @@ class ModelBase
     public function useBuild()
     {
         $table = $this->getTable();
-        return DB::table($table);
+        return DB::table($table, $this->connect);
     }
 }

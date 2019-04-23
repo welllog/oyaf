@@ -8,5 +8,5 @@
 
 class UserModel extends \Base\ModelBase
 {
-
+    use \Traits\NewTrait;
 }
