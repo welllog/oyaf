@@ -37,6 +37,25 @@ return [
                 'time_out' => 3,
                 'database' => 5,
             ]
+        ],
+        'cdb' => [
+            'default' => [
+                'host' => '127.0.0.1',
+                'port' => 9045,
+                'keyspace' => 'base',
+                'username' => '',
+                'password' => '',
+                'heart_beat_intval' => 20,  // 心跳
+                'consistency' => 'one',  // 一致性级别
+                'connect_timeout' => 0.5, // 500ms超时
+                'request_timeout' => 0.5, // 500ms请求超时
+                'max_links' => 80,
+                'min_links' => 10,
+            ]
+        ],
+        'es' => [
+            'host' => '127.0.0.1',
+            'port' => 9200
         ]
     ],
     'product' => [
@@ -70,6 +89,25 @@ return [
                 'time_out' => 3,
                 'database' => 5,
             ]
+        ],
+        'cdb' => [
+            'default' => [
+                'host' => '127.0.0.1',
+                'port' => 9045,
+                'keyspace' => 'base',
+                'username' => '',
+                'password' => '',
+                'heart_beat_intval' => 20,  // 心跳
+                'consistency' => 'one',  // 一致性级别
+                'connect_timeout' => 0.5, // 500ms超时
+                'request_timeout' => 0.5, // 500ms请求超时
+                'max_links' => 80,
+                'min_links' => 10,
+            ]
+        ],
+        'es' => [
+            'host' => '127.0.0.1',
+            'port' => 9200
         ]
     ]
 ];

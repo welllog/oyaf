@@ -23,6 +23,7 @@ class GrpcResponse
     }
 
     /**
+     * 返回grpc调用code
      * @return mixed
      */
     public function getCode()
@@ -31,6 +32,7 @@ class GrpcResponse
     }
 
     /**
+     * 获取grpc调用错误
      * @return mixed
      */
     public function getErr()
@@ -39,6 +41,7 @@ class GrpcResponse
     }
 
     /**
+     * 返回grpc的结果对象，再通过类似getName 获取name属性名称
      * @return null
      */
     public function getReply()
@@ -47,6 +50,7 @@ class GrpcResponse
     }
 
     /**
+     * 返回结果数组
      * @return array
      */
     public function getReplyArr()

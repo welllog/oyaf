@@ -8,6 +8,7 @@
 
 use Olog\Log;
 use Ocache\Cache;
+use Odb\CDB;
 
 class IndexController extends \Base\ControllerBase {
 
@@ -39,7 +40,7 @@ class IndexController extends \Base\ControllerBase {
 
         Log::debug(json_encode($post));
 
-        $user = (new UserModel())->useBuild()->where('name', $post['name'])->first();
+        $user = (new UserModel())->buildQuery()->where('name', $post['name'])->first();
         return $this->ajaxSuccess($user);
 	}
 }

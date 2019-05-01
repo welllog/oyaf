@@ -1,4 +1,7 @@
 .idea
 storage/cache/*
 storage/logs/*
+generate
+pb
+cli/*.log
 vendor

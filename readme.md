@@ -47,7 +47,7 @@ server {
 application/Bootstrap.php中注入
 * 验证器采用了vlucas/valitron，查看相关文档地址:https://github.com/vlucas/valitron
 
-#### 查询构造器(详细用法查看代码)
+#### sql查询构造器(详细用法查看代码)
 >* DB::table('user')->insert(['name' => 'jack', 'age' => 24]);
 >* DB::table('user')->insert([['name' => 'linda', 'age' => 21], ['name' => 'bob', 'age' => 24]]);
 >* DB::table('user')->where('id', '=', 1)->update(['name' => 'remi']);
@@ -61,6 +61,27 @@ application/Bootstrap.php中注入
 >* where('username', '=', 'job')->where('age', '>', 23)
 >* where([['username', '=', 'job'], ['age', '>', 23]])
 >* whereRaw('`id`>? and `status`=?', [10, 1])
+
+#### cql(cassandra)查询构造器
+>* CDB::batch();  // 批处理开始
+>* CDB::table('test')->where('id', 11)->where('name', 'bc')->update(['address' => 'asa']);
+>* CDB::table('test')->where('id', 12)->update(['address' => 'ascdascx']);
+>* CDB::table('test')->where('id',1)->where('name', 'io')->delete();
+>* CDB::batchExec(); // 执行批处理
+>* CDB::table('test')->multiInsert([['id' => 3, 'name' => 'qw'], ['id' => 4, 'name' => 'cct']]);
+>* CDB::table('test')->multiDelete([['id' => 3], ['id' => 4]]);
+>* CDB::table('test')->insert(['id' => 10, 'name' => 'a']);
+>* CDB::table('test')->page(2, 2, 'id', function($row) {
+>*    $row['count'] = $row['count']->toInt();
+>*    return $row;
+>* });
+>* $future = CDB::table('test')->async()->get();  // 异步
+>* $future->get();  // 获取异步执行结果
+
+#### elasticsearch
+>* $query = ESQuery::new()->setIndex('test')->setMust([['ids' => ['values' => [1, 2]]]])->build();
+>* ESCli::getInstance()->search($query)
+
 
 #### controller
 获取请求参数
@@ -79,9 +100,47 @@ application/Bootstrap.php中注入
 * $userModel->all()
 * $userModel->find($userid);
 * $userModel->where(...)
-* $userModel->useBuild()->where(...)->first()
+* $userModel->buildQuery()->where(...)->first()
 
 model属性设置
 * protected $table = 'user';
 * protected $primaryKey = 'id';
+* protected $connect = 'default'
+
+#### 缓存
+>* Cache::get(string $key)
+>* Cache::set(string $key, string $value, int $timeout)
+>* Cache::delete(string $key)
+>* Cache::getMultiple(array $keys)
+>* Cache::setMultiple([$key1 => $value1])
+>* Cache::deleteMultiple(array $keys)
+>* Cache::has(string $key)
+>* Cache::increment(string $key)
+>* Cache::decrement(string $key)
+
+#### 日志
+>* Log::debug(string $msg)
+>* Log::info(string $msg)
+>* Log::notice(string $msg)
+>* Log::warning(string $msg)
+>* Log::error(string $msg)
+>* Log::critical(string $msg)
+>* Log::alert(string $msg)
+>* Log::flush()
+
+#### 限流
+>* (new RateLimit(10, 60, $redis))->safeActAllow($userid, $action);
+>* (new RateLimit(10, 60, $redis))->simActAllow($userid, $action);
+
+#### grpc client
+>* $req = new \Api\Hello();
+>* $req->setHello('world');
+>* $cli = new \Rpc\GrpcClient(\Api\HelloServiceClient::class, $address);
+>* // 同步执行
+>* $reply = $cli->setRequest($req)->call('SayHello');
+>* echo  $reply->getReply()->getHello() . PHP_EOL;
+>* // 异步执行
+>* $async = $cli->setRequest($req)->ascyncExec('SayHello');
+>* echo $async->wait()->getReply()->getHello() . PHP_EOL;
+
  

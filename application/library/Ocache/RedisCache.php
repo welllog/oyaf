@@ -81,9 +81,9 @@ class RedisCache implements CacheInterface
             }
             return $this->handler->mset($values);
         }
-        // 启用事务，（集群环境不支持管道命令，只能操作多条）
+        // 启用管道
         $ttl = (int)$ttl;
-        $pipe = $this->handler->multi();
+        $pipe = $this->handler->multi(\Redis::PIPELINE);
         foreach ($values as $k => $v) {
             $pipe->setex($k, $ttl, serialize($v));
         }
@@ -92,12 +92,6 @@ class RedisCache implements CacheInterface
             if (!$r) return false;
         }
         return true;
-//        $ok = true;
-//        foreach ($values as $k => $v) {  // 不支持管道时的处理方案
-//            $r = $this->set($k, $v, $ttl);
-//            if (!$r) $ok = false;
-//        }
-//        return $ok;
     }
 
     public function deleteMultiple($keys)

@@ -38,13 +38,13 @@ class RateLimit
     }
 
     /**
-     * 并发安全的限流,管道用于减少io，redis集群不支持管道，因此不适用redis集群
+     * 并发安全的限流,管道用于减少io
      * @param $id
      * @param $action
      * @param int $use
      * @return bool
      */
-    public function aSafeActAllow($id, $action, $use = 1)
+    public function safeActAllow($id, $action, $use = 1)
     {
         $rate = $this->maxRequests / $this->period;
 
@@ -53,7 +53,7 @@ class RateLimit
         $quotaKey = $this->keyQuota($id, $action);
 
         if ($this->store->set($lockKey, 1, ['nx', 'ex' => $this->period])) {
-            $this->store->multi()
+            $this->store->multi(\Redis::PIPELINE)
                 ->set($timeKey, time(), $this->period)
                 ->set($quotaKey, $this->maxRequests - $use, $this->period)
                 ->exec();
@@ -71,7 +71,7 @@ class RateLimit
                 $newQuota = $quota - $restQuota;
             }
 
-            $pipeline = $this->store->multi();
+            $pipeline = $this->store->multi(\Redis::PIPELINE);
             $pipeline->set($timeKey, $now, $this->period);
             $pipeline->expire($lockKey, $this->period);
             if ($quota < $use) {
@@ -83,52 +83,6 @@ class RateLimit
                 ($newQuota != $use) && $pipeline->incr($quotaKey, $newQuota - $use);
                 $pipeline->expire($quotaKey, $this->period);
                 $pipeline->exec();
-                return true;
-            }
-        }
-    }
-
-    /**
-     * 限流,适用于redis集群,非管道操作增加了网络io
-     * @param $id
-     * @param $action
-     * @param int $use
-     * @return bool
-     */
-    public function safeActAllow($id, $action, $use = 1)
-    {
-        $rate = $this->maxRequests / $this->period;
-
-        $lockKey = $this->keyLock($id, $action);
-        $timeKey = $this->keyTime($id, $action);
-        $quotaKey = $this->keyQuota($id, $action);
-
-        if ($this->store->set($lockKey, 1, ['nx', 'ex' => $this->period])) {
-            $this->store->set($timeKey, time(), $this->period);
-            $this->store->set($quotaKey, $this->maxRequests - $use, $this->period);
-            return true;
-        } else {
-            $now = time();
-            $passTime = $now - $this->store->get($timeKey);
-            $this->store->set($timeKey, $now, $this->period);
-
-            $restQuota = $this->store->get($quotaKey);
-            $newQuota = intval($passTime * $rate);
-
-            $quota = $restQuota + $newQuota;
-            if ($quota > $this->maxRequests) {
-                $quota = $this->maxRequests;
-                $newQuota = $quota - $restQuota;
-            }
-
-            $this->store->expire($lockKey, $this->period);
-            if ($quota < $use) {
-                ($newQuota > 0) && $this->store->incr($quotaKey, $newQuota);
-                $this->store->expire($quotaKey, $this->period);
-                return false;
-            } else {
-                ($newQuota != $use) && $this->store->incr($quotaKey, $newQuota - $use);
-                $this->store->expire($quotaKey, $this->period);
                 return true;
             }
         }

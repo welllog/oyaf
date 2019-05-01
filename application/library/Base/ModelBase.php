@@ -63,7 +63,7 @@ class ModelBase
      * @return SqlBuilder
      * @throws \Exception
      */
-    public function useBuild()
+    public function buildQuery()
     {
         $table = $this->getTable();
         return DB::table($table, $this->connect);

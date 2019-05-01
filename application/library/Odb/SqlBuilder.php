@@ -494,6 +494,7 @@ class SqlBuilder
     }
 
     /**
+     * TODO prepare一次  批量填充参数
      * usage: update(['id' => 2, 'name' => 'jack'])
      * @param array $update
      * @return int
@@ -573,6 +574,7 @@ class SqlBuilder
         return $this->pdoStatement->rowCount();
     }
 
+    // TODO prepare一次，批量填充参数执行
     public function delete() : int
     {
         $this->resolve('delete');

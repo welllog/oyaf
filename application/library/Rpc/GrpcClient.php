@@ -22,6 +22,11 @@ class GrpcClient
     /** @var int ms */
     protected $waitForChannelReady = 300;
 
+    /**
+     * GrpcClient constructor.
+     * @param $clientClass
+     * @param $address
+     */
     public function __construct($clientClass, $address)
     {
         $this->client = new $clientClass($address, [
@@ -30,21 +35,36 @@ class GrpcClient
         ]);
     }
 
+    /**
+     * @param $request
+     * @return $this
+     */
     public function setRequest($request)
     {
         $this->request = $request;
         return $this;
     }
 
-    public function exec($method)
+    /**
+     * 返回异步执行对象
+     * @param $method
+     * @return GrpcAsync
+     */
+    public function ascyncExec($method)
     {
-        return $this->client->$method($this->request)->wait();
+        $future = $this->client->$method($this->request);
+        return (new GrpcAsync($this->client, $future, $this->request, $method));
     }
 
+    /**
+     * 同步执行
+     * @param $method
+     * @return GrpcResponse
+     */
     public function call($method)
     {
         for ($i = 0; $i < $this->maxTry + 1; ++$i) {
-            list($reply, $status) = $this->exec($method);
+            list($reply, $status) = $this->client->$method($this->request)->wait();
 
             if ($status->code === STATUS_UNAVAILABLE) { // 仅对该错误码进行重试,其余状态都跳出循环
                 $this->client->waitForReady($this->waitForChannelReady);
