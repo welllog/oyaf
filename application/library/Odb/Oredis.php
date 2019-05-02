@@ -9,7 +9,6 @@ class Oredis
 {
     /** @var \Redis[] */
     private static $instance = [];
-    private static $conf = [];
     private static $current = 'default';
 
     /**
@@ -40,11 +39,9 @@ class Oredis
 
     protected static function connect($connect)
     {
-        if (!self::$conf) {
-            self::$conf = Registry::get(RgtEnum::DB_CONF)['redis'];
-        }
-        if (!isset(self::$conf[$connect])) throw new \Exception($connect . '配置异常');
-        $conf = self::$conf[$connect];
+        $conf = Registry::get(RgtEnum::DB_CONF)['redis'];
+        if (!isset($conf[$connect])) throw new \Exception($connect . '配置异常');
+        $conf = $conf[$connect];
         $redis = new \Redis();
         $redis->connect($conf['host'], $conf['port'], $conf['time_out'], null, 100);
         if (!empty($conf['password'])) $redis->auth($conf['password']);

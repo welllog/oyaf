@@ -53,3 +53,16 @@ function getIp() {
 function prettyJson($enc) {
     return json_encode($enc, JSON_UNESCAPED_UNICODE);
 }
+
+function array2Map($array, $key, \Closure $handler = null)
+{
+    $map = [];
+    foreach ($array as $row) {
+        if (isset($row[$key])) {
+            $index = $row[$key];
+            $row = $handler ? $handler($row) : $row;
+            $map[$index] = $row;
+        }
+    }
+    return $map;
+}

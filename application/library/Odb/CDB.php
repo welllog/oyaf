@@ -9,7 +9,6 @@ use Yaf\Registry;
 class CDB
 {
     protected static $instances = [];
-    protected static $conf = [];
     protected static $batch = [];
     protected static $consistency = [
         'one' => \Cassandra::CONSISTENCY_LOCAL_ONE,
@@ -76,11 +75,9 @@ class CDB
 
     protected static function connect(string $connect) : void
     {
-        if (!self::$conf) {
-            self::$conf = Registry::get(RgtEnum::DB_CONF)['cdb'];
-        }
-        if (!isset(self::$conf[$connect])) throw new \Exception($connect.'没有数据库连接配置');
-        $conf = self::$conf[$connect];
+        $conf = Registry::get(RgtEnum::DB_CONF)['cdb'];
+        if (!isset($conf[$connect])) throw new \Exception($connect.'没有数据库连接配置');
+        $conf = $conf[$connect];
         try {
             $consis = self::$consistency[$conf['consistency']] ?? \Cassandra::CONSISTENCY_LOCAL_ONE;
             $cluster = \Cassandra::cluster()->withContactPoints($conf['host'])->withPort($conf['port'])
