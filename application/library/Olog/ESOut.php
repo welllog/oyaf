@@ -27,6 +27,8 @@ class ESOut implements Output
     public function initialize()
     {
         if ($this->initialize) return;
+//        $this->initialize = true;  // 索引建立后,可跳过初始化步骤
+//        return;
         try {
             $indices = $this->escli->indices();
             $exsists = $indices->exists(['index' => $this->index]);
@@ -105,6 +107,7 @@ class ESOut implements Output
         }
         if (!$data['body']) return;
         try {
+            $data['client']['future'] = 'lazy';
             $this->escli->bulk($data);
         } catch (\Exception $e) {
 

@@ -14,6 +14,10 @@ class SamplePlugin extends Yaf\Plugin_Abstract {
 	}
     // 路由结束之后
 	public function routerShutdown(Yaf\Request_Abstract $request, Yaf\Response_Abstract $response) {
+        // 禁止外部直接访问error路由
+        if ($request->controller == 'Error') {
+            throw new \Exc\UsrExc('no route');
+        }
 	    // 设置日志基本信息
 	    $logOption = ['method' => $request->method, 'uri' => $request->getRequestUri()];
         if (!$request->isCli()) $logOption['ip'] = getIp();

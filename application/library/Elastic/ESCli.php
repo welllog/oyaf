@@ -411,19 +411,49 @@ class ESCli
         $res = $this->_escli->search($params);
         if ($async) {
             return new AsyncESResponse($res, function($p) {
-                if (isset($p['error'])) return ['total' => 0, 'data' => []];
+                if (isset($p['error'])) return ['total' => 0, 'hits' => []];
                 $list = [];
                 foreach ($p['hits']['hits'] as $row) {
                     $list[] = $row['_source'];
                 }
-                return ['total' => $p['hits']['total'], 'data' => $list];
+                $res = $p['hits'];
+                $res['hits'] = $list;
+                return $res;
             });
         }
-        if (isset($res['error'])) return ['total' => 0, 'data' => []];
+        if (isset($res['error'])) return ['total' => 0, 'hits' => []];
         $list = [];
         foreach ($res['hits']['hits'] as $row) {
             $list[] = $row['_source'];
         }
-        return ['total' => $res['hits']['total'], 'data' => $list];
+        $res = $res['hits'];
+        $res['hits'] = $list;
+        return $res;
+    }
+
+    public function delByQuery($params, $async = false)
+    {
+        $params['client'] = $this->clientParams;
+        if ($async) $params['client']['future'] = 'lazy';
+        $res = $this->_escli->deleteByQuery($params);
+        if ($async) {
+            return new AsyncESResponse($res, function($p) {
+                return isset($p['error']) ? false : true;
+            });
+        }
+        return isset($res['error']) ? false : true;
+    }
+
+    public function updateByQuery($params, $async = false)
+    {
+        $params['client'] = $this->clientParams;
+        if ($async) $params['client']['future'] = 'lazy';
+        $res = $this->_escli->updateByQuery($params);
+        if ($async) {
+            return new AsyncESResponse($res, function($p) {
+                return isset($p['error']) ? false : true;
+            });
+        }
+        return isset($res['error']) ? false : true;
     }
 }

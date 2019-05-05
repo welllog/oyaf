@@ -65,4 +65,22 @@ class AsyncCqlResponse
         $res = array_values($res[0]);
         return $res[0];
     }
+
+    public function pluck($val, $key = '')
+    {
+        $res = $this->wait(0.5);
+        $result = [];
+        if ($key) {
+            foreach ($res as $row) {
+                $row = $this->handler ? ($this->handler)($row) : $row;
+                $result[$row[$key]] = $row[$val];
+            }
+        } else {
+            foreach ($res as $row) {
+                $row = $this->handler ? ($this->handler)($row) : $row;
+                $result[] = $row[$val];
+            }
+        }
+        return $result;
+    }
 }

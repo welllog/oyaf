@@ -30,6 +30,8 @@ function filterInput(array $params) {
     foreach ($params as $k => &$v) {
         if (is_array($v)) {
             $v = filterInput($v);
+        } elseif (is_numeric($v)) {
+
         } else {
             $v = htmlspecialchars(trim($v), ENT_NOQUOTES);
         }

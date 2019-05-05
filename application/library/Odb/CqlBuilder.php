@@ -52,7 +52,7 @@ class CqlBuilder
 
     public function where(...$where)
     {
-        if (empty($where[0])) return;
+        if (empty($where[0])) return $this;
         $whereSql = '';
         $whereParams = [];
         if (is_array($where[0])) { // Two-dimensional array
@@ -354,6 +354,36 @@ class CqlBuilder
         }
         if ($res[0] === null) return null;
         return $res[0][$column];
+    }
+
+    /**
+     * 不支持异步调用
+     * @param $column
+     * @param string $key
+     * @param \Closure|null $handler
+     * @return array
+     * @throws \Exception
+     */
+    public function pluck($column, $key = '', \Closure $handler = null)
+    {
+        $columns = [$column];
+        if ($key) $columns[] = $key;
+        $this->select($columns);
+        $this->resolve();
+        $res = $this->execute(['arguments' => $this->params], $this->cql);
+        $result = [];
+        if ($key) {
+            foreach ($res as $row) {
+                $row = $handler ? $handler($row) : $row;
+                $result[$row[$key]] = $row[$column];
+            }
+        } else {
+            foreach ($res as $row) {
+                $row = $handler ? $handler($row) : $row;
+                $result[] = $row[$column];
+            }
+        }
+        return $result;
     }
 
     public function prepare($cql)
