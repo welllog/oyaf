@@ -2,27 +2,17 @@
 
 namespace Odb;
 
-
-use Enum\RgtEnum;
-use Yaf\Registry;
-
 class DB
 {
-    /** @var \PDO[] */
-    protected static $instances = [];
-    protected static $conf = [];
-
+    const DEFAULT_CONN = "default";
     /**
      * @param string $connect
-     * @return \PDO
+     * @return SqlOperator
      * @throws \Exception
      */
-    public static function getDB(string $connect = 'default')
+    public static function connect(string $connect = self::DEFAULT_CONN)
     {
-        if (!isset(self::$instances[$connect])) {
-            self::connect($connect);
-        }
-        return self::$instances[$connect];
+        return new SqlOperator($connect);
     }
 
     /**
@@ -31,26 +21,82 @@ class DB
      * @return SqlBuilder
      * @throws \Exception
      */
-    public static function table(string $table, string $connect = 'default')
+    public static function table(string $table, string $connect = self::DEFAULT_CONN)
     {
-        $db = self::getDB($connect);
-        return (new SqlBuilder($db, self::$conf[$connect]['prefix']))->table($table);
+        return self::connect($connect)->table($table);
     }
 
-    protected static function connect(string $connect) : void
+    /**
+     * @param string $connect
+     * @throws \Exception
+     */
+    public static function beginTrans(string $connect = self::DEFAULT_CONN)
     {
-        if (!self::$conf) {
-            self::$conf = Registry::get(RgtEnum::DB_CONF)['db'];
-        }
-        if (!isset(self::$conf[$connect])) throw new \Exception($connect.'没有数据库连接配置');
-        $conf = self::$conf[$connect];
-        $dsn = $conf['driver'] . ":host={$conf['host']};port={$conf['port']};dbname={$conf['dbname']};charset={$conf['charset']}";
-        $conf['params'][\PDO::ATTR_PERSISTENT] = $conf['pconnect'] ? true : false;
-        $conf['params'][\PDO::ATTR_TIMEOUT] = $conf['time_out'] ? $conf['time_out'] : 3;
-        $conf['params'][\PDO::ATTR_ERRMODE] = $conf['throw_exception'] ? \PDO::ERRMODE_EXCEPTION : \PDO::ERRMODE_SILENT;
-        self::$instances[$connect] = new \PDO($dsn, $conf['username'], $conf['password'], $conf['params']);
+        self::connect($connect)->beginTrans();
+    }
+
+    /**
+     * @param string $connect
+     * @throws \Exception
+     */
+    public static function rollBack(string $connect = self::DEFAULT_CONN)
+    {
+        self::connect($connect)->rollBack();
+    }
+
+    /**
+     * @param string $connect
+     * @throws \Exception
+     */
+    public static function commit(string $connect = self::DEFAULT_CONN)
+    {
+        self::connect($connect)->commit();
+    }
+
+    /**
+     * @param string $connect
+     * @return bool
+     * @throws \Exception
+     */
+    public static function inTrans(string $connect = self::DEFAULT_CONN)
+    {
+        return self::connect($connect)->inTrans();
+    }
+
+    /**
+     * @param string $sql
+     * @param string $connect
+     * @return SqlOperator
+     * @throws \Exception
+     */
+    public static function prepare(string $sql, string $connect = self::DEFAULT_CONN)
+    {
+        return self::connect($connect)->prepare($sql);
+    }
+
+    /**
+     * @param string $sql
+     * @param string $connect
+     * @return SqlOperator
+     * @throws \Exception
+     */
+    public static function query(string $sql, string $connect = self::DEFAULT_CONN)
+    {
+        return self::connect($connect)->query($sql);
+    }
+
+    /**
+     * @param string $sql
+     * @param string $connect
+     * @return int
+     * @throws \Exception
+     */
+    public static function exec(string $sql, string $connect = self::DEFAULT_CONN)
+    {
+        return self::connect($connect)->exec($sql);
     }
 
     private function __construct() {}
     private function __clone() {}
+
 }

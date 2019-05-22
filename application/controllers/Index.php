@@ -43,4 +43,13 @@ class IndexController extends \Base\ControllerBase {
         $user = (new UserModel())->buildQuery()->where('name', $post['name'])->first();
         return $this->ajaxSuccess($user);
 	}
+
+    public function ybAction()
+    {
+        $yt = new YouTubeDownloader();
+
+        $links = $yt->getDownloadLinks("https://www.youtube.com/watch?v=BuPM1wys0lI");
+
+        var_dump($links);exit;
+	}
 }

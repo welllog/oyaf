@@ -4,28 +4,39 @@ namespace Odb;
 
 class SqlBuilder
 {
-    /** @var \PDO */
-    protected $db;
+    /** @var SqlOperator */
+    protected $op;
     protected $prefix;
-
-    /** @var \PDOStatement */
-    protected $pdoStatement;
     protected $table;
     protected $sql;
     protected $params = [];
 
     protected $sqlSlice = [
         'distinct' => '', 'columns' => '', 'table' => '', 'join' => '', 'where' => '', 'group_by' => '',
-        'having' => '', 'order_by' => '', 'limit' => '', 'update' => '', 'insert' => '', 'delete' => ''
+        'having' => '', 'order_by' => '', 'limit' => '', 'update' => ''
     ];
     protected $paramSlice = [
-        'allow' => [], 'join' => [], 'where' => [], 'having' => [], 'insert' => [], 'update' => []
+        'allow' => [], 'join' => [], 'where' => [], 'having' => [], 'update' => []
     ];
 
-    public function __construct($db, string $prefix = '')
+    public static function new(string $tablePrefix = '')
     {
-        $this->db = $db;
-        $this->prefix = $prefix;
+        return new static($tablePrefix);
+    }
+
+    /**
+     * SqlBuilder constructor.
+     * @param string $tablePrefix
+     */
+    public function __construct(string $tablePrefix = '')
+    {
+        $this->prefix = $tablePrefix;
+    }
+
+    public function setOperator(SqlOperator $op)
+    {
+        $this->op = $op;
+        return $this;
     }
 
     /**
@@ -418,20 +429,33 @@ class SqlBuilder
     }
 
     /**
-     * usage: insert(['id' => 2, 'name' => 'jack']) || insert([['name' => 'jack'], ['name' => 'linda']])
-     * @param array $insert
-     * @return int
-     * @throws \Exception
+     * @return $this
      */
-    public function insert(array $insert) : int
+    public function buildQuery()
     {
-        if (!$insert) return 0;
+        $columns = $this->sqlSlice['columns'] ? $this->sqlSlice['columns'] : ' * ';
+        $this->sql = 'select' . $this->sqlSlice['distinct'] . $columns . 'from'.
+            $this->sqlSlice['table'] .' '. $this->sqlSlice['join'] . $this->sqlSlice['where'] .
+            $this->sqlSlice['group_by'] . $this->sqlSlice['having'] . $this->sqlSlice['order_by'] .
+            $this->sqlSlice['limit'];
+        $this->params = array_merge($this->paramSlice['join'], $this->paramSlice['where'], $this->paramSlice['having']);
+//            $this->sql = rtrim($this->sql);
+        $this->clean();
+        return $this;
+    }
+
+    /**
+     * @param array $insert
+     * @return $this
+     */
+    public function buildInsert(array $insert)
+    {
         $columns = '(';
         $values = '';
         $allow = $this->paramSlice['allow'];
+        $insertVal = [];
         $filter = ($allow !== []) ? true : false;
         if (isset($insert[0]) && is_array($insert[0])) {
-            if (!$insert[0]) return 0;
             $time = 0;
             foreach ($insert as $val) {
                 $values .= '(';
@@ -439,7 +463,7 @@ class SqlBuilder
                     if (!$filter || isset($allow[$k])) {
                         if ($time == 0) $columns .= '`' . $k . '`,';
                         $values .= '?,';
-                        $this->paramSlice['insert'][] = $v;
+                        $insertVal[] = $v;
                     }
                 }
                 ++$time;
@@ -453,56 +477,32 @@ class SqlBuilder
                 if (!$filter || isset($allow[$key])) {
                     $columns .= '`' . $key . '`,';
                     $values .= '?,';
-                    $this->paramSlice['insert'][] = $val;
+                    $insertVal[] = $val;
                 }
             }
             $values = rtrim($values, ',') . ')';
             $columns = rtrim($columns, ',') . ')';
         }
-        $this->sqlSlice['insert'] = $columns . ' values ' . $values;
-        $this->resolve('insert');
-        $this->_exec();
-        return $this->pdoStatement->rowCount();
+        $this->sql = 'insert into ' . $this->sqlSlice['table'] . ' ' . $columns . ' values ' . $values;
+        $this->params = $insertVal;
+        $this->clean();
+        return $this;
     }
 
-    /**
-     * usage: insertGetId(['id' => 2, 'name' => 'jack'])
-     * @param array $insert
-     * @return int
-     * @throws \Exception
-     */
-    public function insertGetId(array $insert) : int
+    protected function _buildUpdate()
     {
-        if (!$insert) return 0;
-        $columns = '(';
-        $values = '(';
-        $allow = $this->paramSlice['allow'];
-        $filter = ($allow !== []) ? true : false;
-        foreach ($insert as $key => $val) {
-            if (!$filter || isset($allow[$key])) {
-                $columns .= '`' . $key . '`,';
-                $values .= '?,';
-                $this->paramSlice['insert'][] = $val;
-            }
-        }
-        $values = rtrim($values, ',') . ')';
-        $columns = rtrim($columns, ',') . ')';
-        $this->sqlSlice['insert'] = $columns . ' values ' . $values;
-        $this->resolve('insert');
-        $this->_exec();
-        return $this->db->lastInsertId();
+        $where = $this->sqlSlice['where'] ?: 'where 1=2';
+        $this->sql = 'update ' . $this->sqlSlice['table'] . ' ' . $this->sqlSlice['update'] . ' ' . $where;
+        $this->params = array_merge($this->paramSlice['update'], $this->paramSlice['where']);
+        $this->clean();
     }
 
     /**
-     * TODO prepare一次  批量填充参数
-     * usage: update(['id' => 2, 'name' => 'jack'])
      * @param array $update
-     * @return int
-     * @throws \Exception
+     * @return $this
      */
-    public function update(array $update) : int
+    public function buildUpdate(array $update)
     {
-        if (!$update) return 0;
         $updateSql = 'set ';
         $allow = $this->paramSlice['allow'];
         $filter = ($allow !== []) ? true : false;
@@ -513,18 +513,15 @@ class SqlBuilder
             }
         }
         $this->sqlSlice['update'] = rtrim($updateSql, ',');
-        $this->resolve('update');
-        $this->_exec();
-        return $this->pdoStatement->rowCount();
+        $this->_buildUpdate();
+        return $this;
     }
 
     /**
-     * usage: increment('score') || increment('score', 2) || increment([['score', 1], ['level', 9]]);
      * @param $increment
-     * @return int
-     * @throws \Exception
+     * @return $this
      */
-    public function increment($increment) : int
+    public function buildIncrement($increment)
     {
         $updateSql = 'set ';
         if (is_array($increment)) {
@@ -541,18 +538,15 @@ class SqlBuilder
             $this->sqlSlice['update'] = $updateSql . $field . '=' . $field . '+?';
             $this->paramSlice['update'][] = $incr;
         }
-        $this->resolve('update');
-        $this->_exec();
-        return $this->pdoStatement->rowCount();
+        $this->_buildUpdate();
+        return $this;
     }
 
     /**
-     * usage: increment('score') || increment('score', 2) || increment([['score', 1], ['level', 9]]);
      * @param $decrement
-     * @return int
-     * @throws \Exception
+     * @return $this
      */
-    public function decrement($decrement) : int
+    public function buildDecrement($decrement)
     {
         $updateSql = 'set ';
         if (is_array($decrement)) {
@@ -569,26 +563,108 @@ class SqlBuilder
             $this->sqlSlice['update'] = $updateSql . $field . '=' . $field . '-?';
             $this->paramSlice['update'][] = $decr;
         }
-        $this->resolve('update');
-        $this->_exec();
-        return $this->pdoStatement->rowCount();
+        $this->_buildUpdate();
+        return $this;
     }
 
-    // TODO prepare一次，批量填充参数执行
+    /**
+     * @return $this
+     */
+    public function buildDelete()
+    {
+        $where = $this->sqlSlice['where'] ?: 'where 1=2';
+        $this->sql = 'delete from ' . $this->sqlSlice['table'] . ' ' . $where;
+        $this->params = $this->paramSlice['where'];
+        $this->clean();
+        return $this;
+    }
+
+    public function getOperator()
+    {
+        return $this->op;
+    }
+
+    /**
+     * usage: insert(['id' => 2, 'name' => 'jack']) || insert([['name' => 'jack'], ['name' => 'linda']])
+     * @param array $insert
+     * @return int
+     * @throws \Exception
+     */
+    public function insert(array $insert) : int
+    {
+        if (!$insert) return 0;
+        if (isset($insert[0]) && $insert[0] == []) return $this;
+        $this->buildInsert($insert);
+        return $this->op->prepare($this->sql)->execute($this->params)->rowCount();
+    }
+
+    /**
+     * usage: insertGetId(['id' => 2, 'name' => 'jack'])
+     * @param array $insert
+     * @return int
+     * @throws \Exception
+     */
+    public function insertGetId(array $insert)
+    {
+        if (!$insert) return 0;
+        $this->buildInsert($insert);
+        return $this->op->prepare($this->sql)->execute($this->params)->lastInsertId();
+    }
+
+    /**
+     * usage: update(['id' => 2, 'name' => 'jack'])
+     * @param array $update
+     * @return int
+     * @throws \Exception
+     */
+    public function update(array $update) : int
+    {
+        if (!$update) return 0;
+        $this->buildUpdate($update);
+        return $this->op->prepare($this->sql)->execute($this->params)->rowCount();
+    }
+
+    /**
+     * usage: increment('score') || increment('score', 2) || increment([['score', 1], ['level', 9]]);
+     * @param $increment
+     * @return int
+     * @throws \Exception
+     */
+    public function increment($increment) : int
+    {
+        $this->buildIncrement($increment);
+        return $this->op->prepare($this->sql)->execute($this->params)->rowCount();
+    }
+
+    /**
+     * usage: increment('score') || increment('score', 2) || increment([['score', 1], ['level', 9]]);
+     * @param $decrement
+     * @return int
+     * @throws \Exception
+     */
+    public function decrement($decrement) : int
+    {
+        $this->buildDecrement($decrement);
+        return $this->op->prepare($this->sql)->execute($this->params)->rowCount();
+    }
+
     public function delete() : int
     {
-        $this->resolve('delete');
-        $this->_exec();
-        return $this->pdoStatement->rowCount();
+        $this->buildDelete();
+        return $this->op->prepare($this->sql)->execute($this->params)->rowCount();
     }
 
     public function getSql() : string
     {
-        $this->resolve();
-        return $this->resolveSql();
+        return $this->sql;
     }
 
-    protected function resolveSql()
+    public function getParams() : array
+    {
+        return $this->params;
+    }
+
+    public function getRSql()
     {
         if (!$this->sql) return '';
         $arr = explode('?', $this->sql);
@@ -602,185 +678,68 @@ class SqlBuilder
 
     public function get() : array
     {
-        $this->resolve();
-        $this->_exec();
-        return $this->pdoStatement->fetchAll(\PDO::FETCH_ASSOC); // PDO::FETCH_OBJ
+        $this->buildQuery();
+        return $this->op->prepare($this->sql)->execute($this->params)->get();
     }
 
     public function first() : ?array
     {
-        $this->resolve();
-        $this->_exec();
-        $res = $this->pdoStatement->fetch(\PDO::FETCH_ASSOC);
-//        $this->pdoStatement->closeCursor(); // 非mysql时尽量打开
-        return $res ? $res : null;
+        $this->buildQuery();
+        return $this->op->prepare($this->sql)->execute($this->params)->first();
     }
 
     public function pluck(string $col, string $key = '') : array
     {
         $columns[] = $col;
         ($key !== '') && ($columns[] = $key);
-        $res = $this->select($columns)->get();
-        if ($res === []) return $res;
-        $col = trim($col);
-        $offset = strpos($col, '.');
-        if ($offset !== false) {
-            $col = ltrim(substr($col, $offset+1));
-        }
-        if ($key !== '') {
-            $data = [];
-            $key = trim($key);
-            $offset = strpos($key, '.');
-            if ($offset !== false) {
-                $key = ltrim(substr($key, $offset+1));
-            }
-            foreach ($res as $val) {
-                $data[$val[$key]] = $val[$col];
-            }
-            return $data;
-        }
-        return array_column($res, $col);
+        $this->select($columns)->buildQuery();
+        return $this->op->prepare($this->sql)->execute($this->params)->pluck($col, $key);
     }
 
     public function value(string $column) : ?string
     {
-        $res = $this->select($column)->first();
-        if ($res === null) return null;
-        return $res[$column];
+        $this->select($column)->buildQuery();
+        return $this->op->prepare($this->sql)->execute($this->params)->value($column);
     }
 
     public function max(string $column) : int
     {
         $res = $this->select('max('.$column.') as num')->first();
-        if ($res === null) return 0;
-        return $res['num'];
+        return $res['num'] ?: 0;
     }
 
     public function min(string $column) : int
     {
         $res = $this->select('min('.$column.') as num')->first();
-        if ($res === null) return 0;
-        return $res['num'];
+        return $res['num'] ?: 0;
     }
 
     public function sum(string $column) : int
     {
         $res = $this->select('sum('.$column.') as num')->first();
-        if ($res === null) return 0;
-        return $res['num'];
+        return $res['num'] ?: 0;
     }
 
     public function count() : int
     {
         $res = $this->select('count(*) as num')->first();
-        if ($res === null) return 0;
         return $res['num'];
     }
 
     public function avg(string $column) : int
     {
         $res = $this->select('avg('.$column.') as num')->first();
-        if ($res === null) return 0;
-        return $res['num'];
+        return $res['num'] ?: 0;
     }
 
-    public function beginTrans()
+    public function clean()
     {
-        $this->db->beginTransaction();
-    }
-
-    public function inTrans() : bool
-    {
-        return $this->db->inTransaction();
-    }
-
-    public function rollBack()
-    {
-        $this->db->rollBack();
-    }
-
-    public function commit()
-    {
-        $this->db->commit();
-    }
-
-    public function prepare(string $sql)
-    {
-        $this->pdoStatement = $this->db->prepare($sql);
-        return $this;
-    }
-
-    public function execute(array $params = [])
-    {
-        $this->pdoStatement->execute($params);
-        return $this;
-    }
-
-    public function rowCount() : int
-    {
-        return $this->pdoStatement->rowCount();
-    }
-
-    public function lastInsertId() : int
-    {
-        return $this->db->lastInsertId();
-    }
-
-    public function exec(string $sql) : int
-    {
-        return $this->db->exec($sql);
-    }
-
-    public function query(string $sql)
-    {
-        $this->pdoStatement = $this->db->query($sql);
-        return $this;
-    }
-
-    public function fetchAll() : array
-    {
-        return $this->pdoStatement->fetchAll(\PDO::FETCH_ASSOC);
-    }
-
-    public function fetch() : ?array
-    {
-        return $this->pdoStatement->fetch(\PDO::FETCH_ASSOC);
-    }
-
-    protected function resolve(string $option = 'select') : void
-    {
-        if ($option === 'select') {
-            $columns = $this->sqlSlice['columns'] ? $this->sqlSlice['columns'] : ' * ';
-            $this->sql = 'select' . $this->sqlSlice['distinct'] . $columns . 'from'.
-                $this->sqlSlice['table'] .' '. $this->sqlSlice['join'] . $this->sqlSlice['where'] .
-                $this->sqlSlice['group_by'] . $this->sqlSlice['having'] . $this->sqlSlice['order_by'] .
-                $this->sqlSlice['limit'];
-            $this->params = array_merge($this->paramSlice['join'], $this->paramSlice['where'], $this->paramSlice['having']);
-//            $this->sql = rtrim($this->sql);
-        } elseif ($option === 'update') {
-            $where = $this->sqlSlice['where'] ?: 'where 1=2';
-            $this->sql = 'update ' . $this->sqlSlice['table'] . ' ' . $this->sqlSlice['update'] . ' ' . $where;
-            $this->params = array_merge($this->paramSlice['update'], $this->paramSlice['where']);
-        } elseif ($option === 'insert') {
-            $this->sql = 'insert into ' . $this->sqlSlice['table'] . ' ' . $this->sqlSlice['insert'];
-            $this->params = $this->paramSlice['insert'];
-        } elseif ($option === 'delete') {
-            $where = $this->sqlSlice['where'] ?: 'where 1=2';
-            $this->sql = 'delete from ' . $this->sqlSlice['table'] . ' ' . $where;
-            $this->params = $this->paramSlice['where'];
+        foreach ($this->sqlSlice as $sk => $sv) {
+            $this->sqlSlice[$sk] = '';
         }
-    }
-
-    protected function _exec()
-    {
-        try {
-            $this->pdoStatement = $this->db->prepare($this->sql);
-            $this->pdoStatement->execute($this->params);
-        } catch (\Exception $e) {
-            $sql = $this->resolveSql();
-            throw new \Exception($e->getMessage().' ; sql: ' . $sql);
+        foreach ($this->paramSlice as $pk => $pv) {
+            $this->paramSlice[$pk] = [];
         }
-
     }
 
     protected function _join($joinSql, ...$args) : void

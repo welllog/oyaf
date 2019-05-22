@@ -3,5 +3,9 @@
 
 define('REQ_BEGIN_TIME', microtime(true));
 
-define('RUN_MODE', 'dev'); // product, dev
-
+$mode = getenv('RUN_MODE');
+if ($mode) {
+    define('RUN_MODE', $mode); // product, dev
+} else {
+    define('RUN_MODE', 'dev'); // product, dev
+}

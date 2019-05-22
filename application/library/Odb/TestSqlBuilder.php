@@ -8,12 +8,11 @@
 
 namespace Odb;
 
-
 class TestSqlBuilder
 {
     public static function getSqlBuilder()
     {
-        return new SqlBuilder('pdo', 'test_');
+        return new SqlBuilder('test_');
     }
 
     public static function testTable()

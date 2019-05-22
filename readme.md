@@ -63,13 +63,9 @@ application/Bootstrap.php中注入
 >* whereRaw('`id`>? and `status`=?', [10, 1])
 
 #### cql(cassandra)查询构造器
->* CDB::batch();  // 批处理开始
 >* CDB::table('test')->where('id', 11)->where('name', 'bc')->update(['address' => 'asa']);
 >* CDB::table('test')->where('id', 12)->update(['address' => 'ascdascx']);
 >* CDB::table('test')->where('id',1)->where('name', 'io')->delete();
->* CDB::batchExec(); // 执行批处理
->* CDB::table('test')->multiInsert([['id' => 3, 'name' => 'qw'], ['id' => 4, 'name' => 'cct']]);
->* CDB::table('test')->multiDelete([['id' => 3], ['id' => 4]]);
 >* CDB::table('test')->insert(['id' => 10, 'name' => 'a']);
 >* CDB::table('test')->page(2, 2, 'id', function($row) {
 >*    $row['count'] = $row['count']->toInt();
@@ -77,6 +73,11 @@ application/Bootstrap.php中注入
 >* });
 >* $future = CDB::table('test')->async()->get();  // 异步
 >* $future->get();  // 获取异步执行结果
+>* $db = CDB::connect();
+>* $db->batch(); // 批处理开始
+>* $db->table('test')->where('id', 1)->update(['name' => 'linda']);
+>* $db->table('test')->where('id', 2)->update(['age' => 24]);
+>* $db->batchExec(); // 执行批处理
 
 #### elasticsearch
 >* $query = ESQuery::new()->setIndex('test')->setMust([['ids' => ['values' => [1, 2]]]])->build();

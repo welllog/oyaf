@@ -13,11 +13,18 @@ class AsyncCqlResponse
 {
     protected $future;
     protected $handler;
+    protected $column;
 
     public function __construct($future, \Closure $handler = null)
     {
         $this->future = $future;
         $this->handler = $handler;
+    }
+
+    public function setColumn($column)
+    {
+        $this->column = $column;
+        return $this;
     }
 
     /**
@@ -51,7 +58,8 @@ class AsyncCqlResponse
     public function first()
     {
         $res = $this->wait(0.5);
-        return $res[0];
+        if ($res[0] === null) return null;
+        return ($this->handler ? ($this->handler)($res[0]) : $res[0]);
     }
 
     /**
@@ -62,8 +70,13 @@ class AsyncCqlResponse
     {
         $res = $this->wait(0.5);
         if ($res[0] === null) return null;
-        $res = array_values($res[0]);
-        return $res[0];
+        if ($this->column) {
+            $res = $res[0][$this->column];
+        } else {
+            $res = array_values($res[0])[0];
+        }
+        if ($res === null) return null;
+        return ($this->handler ? ($this->handler)($res) : $res);
     }
 
     public function pluck($val, $key = '')

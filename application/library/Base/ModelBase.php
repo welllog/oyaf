@@ -15,7 +15,7 @@ class ModelBase
 {
     protected $table;
     protected $primaryKey = 'id';
-    protected $connect = 'default';
+    protected $connect = DB::DEFAULT_CONN;
 
     protected function getTable()
     {
@@ -60,7 +60,7 @@ class ModelBase
     }
 
     /**
-     * @return SqlBuilder
+     * @return \Odb\SqlBuilder
      * @throws \Exception
      */
     public function buildQuery()

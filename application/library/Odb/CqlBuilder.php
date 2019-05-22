@@ -11,26 +11,29 @@ namespace Odb;
 
 class CqlBuilder
 {
-    protected $db;
-
-    protected $statement;
+    /** @var CqlOperator */
+    protected $op;
     protected $cql;
     protected $params = [];
-    protected $batch;
-    protected $async = false;
 
     protected $cqlSlice = [
         'columns' => '', 'table' => '', 'ttl' => '', 'where' => '', 'group_by' => '', 'order_by' => '',
-        'limit' => '', 'update' => '', 'insert' => '', 'delete' => ''
+        'limit' => '', 'update' => ''
     ];
 
     protected $paramSlice = [
-        'allow' => [], 'where' => [], 'insert' => [], 'update' => []
+        'allow' => [], 'where' => [], 'update' => []
     ];
 
-    public function __construct($db)
+    public static function new()
     {
-        $this->db = $db;
+        return new static();
+    }
+
+    public function setOperator(CqlOperator $op)
+    {
+        $this->op = $op;
+        return $this;
     }
 
     public function table($table)
@@ -148,14 +151,8 @@ class CqlBuilder
         return $this;
     }
 
-    /**
-     * @param $insert
-     * @return bool
-     * @throws \Exception
-     */
-    public function insert($insert)
+    public function buildInsert($insert)
     {
-        if (!$insert) return false;
         $insertStr = '(';
         $rep = '(';
         $allow = $this->paramSlice['allow'];
@@ -170,40 +167,22 @@ class CqlBuilder
         }
         $insertStr = rtrim($insertStr, ',') . ')';
         $rep = rtrim($rep, ',') . ')';
-        $this->cqlSlice['insert'] = $insertStr . ' values ' . $rep;
-        $this->paramSlice['insert'] = $insertVal;
-        $this->resolve('insert');
-        $this->execute(['arguments' => $this->params], $this->cql);
+        $insertStr = $insertStr . ' values ' . $rep;
+        $this->cql = 'INSERT INTO ' . $this->cqlSlice['table'] . ' ' . $insertStr . $this->cqlSlice['ttl'];
+        $this->params = $insertVal;
+        $this->clean();
+        return $this;
     }
 
-    /**
-     * @param array $insert
-     * @return AsyncCqlResponse[]|array
-     * @throws \Exception
-     */
-    public function multiInsert(array $insert)
+    protected function _buildUpdate()
     {
-        $columns = array_keys($insert[0]);
-        $insertStr = '(';
-        $rep = '(';
-        foreach ($columns as $k) {
-            $insertStr .= $k . ',';
-            $rep .= '?,';
-        }
-        $insertStr = rtrim($insertStr, ',') . ')';
-        $rep = rtrim($rep, ',') . ')';
-        $this->cqlSlice['insert'] = $insertStr . ' values ' . $rep;
-        $this->paramSlice['insert'] = [];
-        foreach ($insert as $row) {
-            $this->paramSlice['insert'][] = array_values($row);
-        }
-        $this->resolve('insert');
-        return $this->multiExec($this->params, $this->cql);
+        $this->cql = 'UPDATE ' . $this->cqlSlice['table'] . $this->cqlSlice['ttl'] . ' SET ' . $this->cqlSlice['update'] . ' ' . $this->cqlSlice['where'];
+        $this->params = array_merge($this->paramSlice['update'], $this->paramSlice['where']);
+        $this->clean();
     }
 
-    public function update($update)
+    public function buildUpdate($update)
     {
-        if (!$update) return false;
         $upStr = '';
         $upVal = [];
         $allow = $this->paramSlice['allow'];
@@ -216,44 +195,111 @@ class CqlBuilder
         }
         $this->cqlSlice['update'] = rtrim($upStr, ',');
         $this->paramSlice['update'] = $upVal;
-        $this->resolve('update');
-        $this->execute(['arguments' => $this->params], $this->cql);
+        $this->_buildUpdate();
+        return $this;
     }
 
-    public function delete()
+    public function buildIncrement($column, $step)
     {
-        $this->resolve('delete');
-        $this->execute(['arguments' => $this->params], $this->cql);
+        $step = intval($step);
+        $this->cqlSlice['update'] = $column . ' = ' . $column . ' + ' . $step;
+        $this->_buildUpdate();
+        return $this;
+    }
+
+    public function buildDelete()
+    {
+        $this->cql = 'DELETE FROM ' . $this->cqlSlice['table'] . ' ' . $this->cqlSlice['where'];
+        $this->params = $this->paramSlice['where'];
+        $this->clean();
+        return $this;
+    }
+
+    public function buildQuery()
+    {
+        $columns = $this->cqlSlice['columns'] ? $this->cqlSlice['columns'] : '*';
+        $this->cql = 'SELECT ' . $columns . ' FROM ' . $this->cqlSlice['table'] . ' ' . $this->cqlSlice['where']
+            . $this->cqlSlice['group_by'] . $this->cqlSlice['order_by'] . $this->cqlSlice['limit'];
+        $this->params = $this->paramSlice['where'];
+        $this->clean();
+        return $this;
     }
 
     /**
-     * @param array $where
+     * @param $insert
+     * @return null|AsyncCqlResponse
+     * @throws \Exception
+     */
+    public function insert($insert)
+    {
+        if (!$insert) return null;
+        $this->buildInsert($insert);
+        return $this->op->execute($this->params, $this->cql)->getResult();
+    }
+
+    /**
+     * @param array $insert
      * @return AsyncCqlResponse[]|array
      * @throws \Exception
      */
-    public function multiDelete(array $where)
+    public function multiInsert(array $insert)
     {
-        $columns = array_keys($where[0]);
-        $whereStr = ' WHERE ';
-        foreach ($columns as $c) {
-            $whereStr .= $c . ' = ? AND ';
+        $this->buildInsert($insert[0]);
+        $this->op->prepare($this->cql);
+
+        $resp = [];
+        foreach ($insert as $row) {
+            $params = array_values($row);
+            $resp[] = $this->op->execute($params)->getResult();
         }
-        $this->cqlSlice['where'] = substr($whereStr, 0, -4);
-        $this->paramSlice['where'] = [];
-        foreach ($where as $row) {
-            $this->paramSlice['where'][] = array_values($row);
-        }
-        $this->resolve('delete');
-        return $this->multiExec($this->params, $this->cql);
+        return $resp;
+    }
+
+    /**
+     * @param $update
+     * @return null|AsyncCqlResponse
+     * @throws \Exception
+     */
+    public function update($update)
+    {
+        if (!$update) return null;
+        $this->buildUpdate($update);
+        return $this->op->execute($this->params, $this->cql)->getResult();
+    }
+
+    /**
+     * @param $column
+     * @param $step
+     * @return AsyncCqlResponse
+     * @throws \Exception
+     */
+    public function increment($column, $step)
+    {
+        $this->buildIncrement($column, $step);
+        return $this->op->execute($this->params, $this->cql)->getResult();
+    }
+
+    /**
+     * @return AsyncCqlResponse
+     * @throws \Exception
+     */
+    public function delete()
+    {
+        $this->buildDelete();
+        return $this->op->execute($this->params, $this->cql)->getResult();
     }
 
     public function getCql()
     {
-        $this->resolve();
-        return $this->resolveCql();
+        return $this->cql;
     }
 
-    protected function resolveCql()
+    public function getParams()
+    {
+        return $this->params;
+    }
+
+    public function getRcql()
     {
         if (!$this->cql) return '';
         $arr = explode('?', $this->cql);
@@ -265,95 +311,105 @@ class CqlBuilder
         return $cql;
     }
 
+    /**
+     * handler需要注意值为空
+     * @param \Closure|null $handler
+     * @return array|AsyncCqlResponse
+     * @throws \Exception
+     */
     public function get(\Closure $handler = null)
     {
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res, $handler);
-        }
-        $result = [];
-        foreach ($res as $row) {
-            $result[] = $handler ? $handler($row) : $row;
-        }
-        return $result;
+        $this->buildQuery();
+        return $this->op->execute($this->params, $this->cql)->get($handler);
     }
 
-    public function first()
+    /**
+     * handler需要注意值为空
+     * @param \Closure|null $handler
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
+    public function first(\Closure $handler = null)
     {
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
-        return $res[0];
+        $this->buildQuery();
+        return $this->op->execute($this->params, $this->cql)->first($handler);
     }
 
+    /**
+     * @param $column
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
     public function max($column)
     {
-        $this->select("max($column) as num");
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
+        $this->select("max($column) as num")->buildQuery();
+        $res = $this->op->execute($this->params, $this->cql)->getResult();
+        if ($res instanceof AsyncCqlResponse) return $res;
         return $res[0]['num'];
     }
 
+    /**
+     * @param $column
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
     public function min($column)
     {
-        $this->select("min($column) as num");
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
+        $this->select("min($column) as num")->buildQuery();
+        $res = $this->op->execute($this->params, $this->cql)->getResult();
+        if ($res instanceof AsyncCqlResponse) return $res;
         return $res[0]['num'];
     }
 
+    /**
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
     public function count()
     {
-        $this->select('count(*) as num');
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
+        $this->select('count(*) as num')->buildQuery();
+        $res = $this->op->execute($this->params, $this->cql)->getResult();
+        if ($res instanceof AsyncCqlResponse) return $res;
         return $res[0]['num']->value();
     }
 
+    /**
+     * @param $column
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
     public function avg($column)
     {
-        $this->select("avg($column) as num");
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
+        $this->select("avg($column) as num")->buildQuery();
+        $res = $this->op->execute($this->params, $this->cql)->getResult();
+        if ($res instanceof AsyncCqlResponse) return $res;
         return $res[0]['num'];
     }
 
+    /**
+     * @param $column
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
     public function sum($column)
     {
-        $this->select("sum($column) as num");
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
+        $this->select("sum($column) as num")->buildQuery();
+        $res = $this->op->execute($this->params, $this->cql)->getResult();
+        if ($res instanceof AsyncCqlResponse) return $res;
         return $res[0]['num'];
     }
 
-    public function value($column)
+    /**
+     * @param $column
+     * @param \Closure|null $handler
+     * @return mixed|null|AsyncCqlResponse
+     * @throws \Exception
+     */
+    public function value($column, \Closure $handler = null)
     {
         $this->select($column);
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        if ($this->async) {
-            return new AsyncCqlResponse($res);
-        }
-        if ($res[0] === null) return null;
-        return $res[0][$column];
+        $this->buildQuery();
+        return $this->op->execute($this->params, $this->cql)->value($column, $handler);
     }
 
     /**
@@ -369,95 +425,19 @@ class CqlBuilder
         $columns = [$column];
         if ($key) $columns[] = $key;
         $this->select($columns);
-        $this->resolve();
-        $res = $this->execute(['arguments' => $this->params], $this->cql);
-        $result = [];
-        if ($key) {
-            foreach ($res as $row) {
-                $row = $handler ? $handler($row) : $row;
-                $result[$row[$key]] = $row[$column];
-            }
-        } else {
-            foreach ($res as $row) {
-                $row = $handler ? $handler($row) : $row;
-                $result[] = $row[$column];
-            }
-        }
-        return $result;
-    }
-
-    public function prepare($cql)
-    {
-        try {
-            $this->statement = $this->db->prepare($cql);
-        } catch (\Exception $e) {
-            $cql = $this->resolveCql();
-            throw new \Exception($e->getMessage().' ; cql: ' . $cql);
-        }
-        return $this;
-    }
-
-    public function execute($option, $cql = '')
-    {
-        $res = [];
-        $cql = $cql ? $cql : $this->statement;
-        try {
-            if ($this->batch) {
-                // 批处理直接填充参数
-                $this->batch->add($cql, $option['arguments']);
-                $this->batch->cql[] = $cql;
-            } else {
-                if ($this->async) {
-                    $res = $this->db->executeAsync($cql, $option);
-                } else {
-                    $res = $this->db->execute($cql, $option);
-                }
-            }
-        } catch (\Exception $e) {
-            $cql = $this->resolveCql();
-            throw new \Exception($e->getMessage().' ; cql: ' . $cql);
-        }
-        return $res;
-    }
-
-    // 不支持异步操作
-    public function multiExec($options, $cql = '')
-    {
-        $this->prepare($cql);
-        $res = [];
-        try {
-            if ($this->batch) {
-                foreach ($options as $op) {
-                    $this->batch->add($this->statement, $op);
-                    $this->batch->cql[] = $cql;
-                }
-            } else {
-                foreach ($options as $op) {
-                    if ($this->async) {
-                        $r = $this->db->executeAsync($this->statement, ['arguments' => $op]);
-                        $res[] = new AsyncCqlResponse($r);
-                    } else {
-                        $this->db->execute($this->statement, ['arguments' => $op]);
-                    }
-
-                }
-            }
-        } catch (\Exception $e) {
-            throw new \Exception($e->getMessage().' ; cql: ' . $cql);
-        }
-        return $res;
-    }
-
-    public function setBatch($batch)
-    {
-        $this->batch = $batch;
-        return $this;
+        $this->buildQuery();
+        return $this->op->execute($this->params, $this->cql)->pluck($column, $key, $handler);
     }
 
     public function async()
     {
-        $this->async = true;
+        $this->op->async();
         return $this;
+    }
+
+    public function getOperator()
+    {
+        return $this->op;
     }
 
     /**
@@ -471,16 +451,17 @@ class CqlBuilder
      */
     public function page($pages, $size, $flag = 'id', \Closure $handler = null)
     {
-        $this->resolve();
+        $this->buildQuery();
         $offset = ($pages - 1) * $size;
         if ($offset <= 0) {
-            $result = $this->execute(['arguments' => $this->params, 'page_size' => $size], $this->cql);
+            $result = $this->op->origExecute(['arguments' => $this->params, 'page_size' => $size], $this->cql)->getResult();
         } else {
             $cql = $this->pageCql($flag);
-            $result = $this->execute(['arguments' => $this->params, 'page_size' => $offset], $cql);
+            $result = $this->op->origExecute(['arguments' => $this->params, 'page_size' => $offset], $cql)->getResult();
             $pageToken = $result->pagingStateToken();
             if ($pageToken === null) return [];
-            $result = $this->execute(['arguments' => $this->params, 'paging_state_token' => $result->pagingStateToken(), 'page_size' => $size], $this->cql);
+            $result = $this->op->origExecute(['arguments' => $this->params, 'paging_state_token' => $result->pagingStateToken(), 'page_size' => $size], $this->cql)
+                ->getResult();
         }
         $re = [];
         foreach ($result as $row) {
@@ -495,31 +476,14 @@ class CqlBuilder
             . $this->cqlSlice['group_by'] . $this->cqlSlice['order_by'] . $this->cqlSlice['limit'];
     }
 
-    private function resolve($option = '')
+    protected function clean()
     {
-        if (substr_count($this->cql, '?') !== count($this->params)) throw new \Exception('params ind error; cql: ' . $this->cql);
-        if ($option === 'insert') {
-            $this->cql = 'INSERT INTO ' . $this->cqlSlice['table'] . ' ' . $this->cqlSlice['insert'] . $this->cqlSlice['ttl'];
-            $this->params = $this->paramSlice['insert'];
-        } elseif ($option === 'update') {
-            $this->cql = 'UPDATE ' . $this->cqlSlice['table'] . $this->cqlSlice['ttl'] . ' SET ' . $this->cqlSlice['update'] . ' ' . $this->cqlSlice['where'];
-            $this->params = array_merge($this->paramSlice['update'], $this->paramSlice['where']);
-        } elseif ($option === 'delete') {
-            $this->cql = 'DELETE FROM ' . $this->cqlSlice['table'] . ' ' . $this->cqlSlice['where'];
-            $this->params = $this->paramSlice['where'];
-        } else {
-            $columns = $this->cqlSlice['columns'] ? $this->cqlSlice['columns'] : '*';
-            $this->cql = 'SELECT ' . $columns . ' FROM ' . $this->cqlSlice['table'] . ' ' . $this->cqlSlice['where']
-            . $this->cqlSlice['group_by'] . $this->cqlSlice['order_by'] . $this->cqlSlice['limit'];
-            $this->params = $this->paramSlice['where'];
+        foreach ($this->cqlSlice as $ck => $cv) {
+            $this->cqlSlice[$ck] = '';
+        }
+        foreach ($this->paramSlice as $pk => $pv) {
+            $this->paramSlice[$pk] = [];
         }
     }
-
-
-
-
-
-
-
 
 }

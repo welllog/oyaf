@@ -18,7 +18,7 @@ return [
                 'charset' => 'utf8',
                 'pconnect' => false,
                 'time_out' => 3,
-                'prefix' => 'test_',
+                'prefix' => '',
                 'throw_exception' => true
             ]
         ],
