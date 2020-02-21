@@ -29,7 +29,7 @@ class ControllerBase extends \Yaf\Controller_Abstract
         return $this->_query;
     }
 
-    public function getPostFrom($name = '', $default = null) {
+    public function getPostForm($name = '', $default = null) {
         if ($this->_postForm === null) {
             $this->_postForm = filterInput($this->_request->getPost());
         }

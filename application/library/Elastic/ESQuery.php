@@ -31,7 +31,7 @@ class ESQuery
      */
     public function setMust($must)
     {
-        $this->body['query']['bool']['filter']['bool']['must'] = $must;
+        $this->body['query']['bool']['must'] = $must;
         return $this;
     }
 
@@ -41,11 +41,43 @@ class ESQuery
      */
     public function setMustNot($mustnot)
     {
+        $this->body['query']['bool']['must_not'] = $mustnot;
+        return $this;
+    }
+
+    /**
+     * @param $should [['term' => ['col' => 'val']]]
+     * @return $this
+     */
+    public function setShould($should)
+    {
+        $this->body['query']['bool']['should'] = $should;
+        return $this;
+    }
+
+    /**
+     * @param $filters [['term' => ['col' => 'val']]]
+     * @return $this
+     */
+    public function setFilter($filters)
+    {
+        $this->body['query']['bool']['filter'] = $filters;
+        return $this;
+    }
+
+    public function setFilterMust($must)
+    {
+        $this->body['query']['bool']['filter']['bool']['must'] = $must;
+        return $this;
+    }
+
+    public function setFilterMustNot($mustnot)
+    {
         $this->body['query']['bool']['filter']['bool']['must_not'] = $mustnot;
         return $this;
     }
 
-    public function setShould($should)
+    public function setFilterShould($should)
     {
         $this->body['query']['bool']['filter']['bool']['should'] = $should;
         return $this;

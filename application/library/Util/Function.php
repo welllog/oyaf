@@ -33,7 +33,7 @@ function filterInput(array $params) {
         } elseif (is_numeric($v)) {
 
         } else {
-            $v = htmlspecialchars(trim($v), ENT_NOQUOTES);
+            $v = htmlspecialchars(trim($v), ENT_QUOTES);
         }
     }
     return $params;
